@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Literacy Pipeline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+        }
+
+        .container {
+            text-align: center;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .circle-input {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: white;
+            margin: 0 auto 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .circle-input:hover:not(.processing) {
+            transform: scale(1.05);
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
+        }
+
+        .circle-input.processing {
+            /* Water fill animation replaces pulse */
+        }
+
+        /* Water fill layer */
+        .water-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(180deg, 
+                rgba(30, 144, 255, 1) 0%,
+                rgba(70, 130, 180, 0.95) 30%,
+                rgba(102, 126, 234, 0.9) 60%,
+                rgba(135, 206, 250, 0.85) 100%);
+            transition: height 0.5s ease-out;
+            z-index: 1;
+            border-radius: 50%;
+            box-shadow: 
+                inset 0 -10px 20px rgba(0, 0, 0, 0.2),
+                inset 0 10px 30px rgba(255, 255, 255, 0.1),
+                0 0 20px rgba(30, 144, 255, 0.3);
+            overflow: hidden;
+        }
+
+        /* Subtle wave animation on water surface - straighter */
+        .water-fill::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg,
+                rgba(255, 255, 255, 0.4) 0%,
+                rgba(255, 255, 255, 0.6) 25%,
+                rgba(255, 255, 255, 0.5) 50%,
+                rgba(255, 255, 255, 0.6) 75%,
+                rgba(255, 255, 255, 0.4) 100%);
+            animation: wave 4s ease-in-out infinite;
+            border-radius: 2px;
+        }
+
+        /* Shine/gloss effect on water surface */
+        .water-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 30%;
+            background: linear-gradient(180deg,
+                rgba(255, 255, 255, 0.3) 0%,
+                rgba(255, 255, 255, 0.1) 50%,
+                transparent 100%);
+            pointer-events: none;
+            border-radius: 50% 50% 0 0;
+        }
+
+        @keyframes wave {
+            0%, 100% {
+                transform: translateX(0) translateY(0);
+                opacity: 0.8;
+            }
+            50% {
+                transform: translateX(2px) translateY(-1px);
+                opacity: 1;
+            }
+        }
+
+        /* Content layer (input and button) - above water */
+        .circle-content {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.3s ease;
+        }
+
+        .circle-input.processing .circle-content {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Percentage display during processing */
+        .progress-percentage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 3;
+            font-size: 48px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .circle-input.processing .progress-percentage {
+            opacity: 1;
+        }
+
+        #urlInput {
+            width: 80%;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 16px;
+            text-align: center;
+            color: #333;
+            padding: 10px;
+            position: relative;
+            z-index: 2;
+        }
+
+        #urlInput::placeholder {
+            color: #999;
+        }
+
+        .submit-btn {
+            margin-top: 15px;
+            padding: 10px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .submit-btn:hover {
+            background: #5568d3;
+        }
+
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .progress-container {
+            margin-top: 30px;
+            min-height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .progress-message {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 12px 20px;
+            margin: 0 auto;
+            border-radius: 8px;
+            max-width: 500px;
+            text-align: left;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .progress-message.progress {
+            border-left: 4px solid #667eea;
+        }
+
+        .progress-message.error {
+            border-left: 4px solid #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+        }
+
+        .result-container {
+            margin-top: 30px;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            width: calc(100vw - 80px); /* Full viewport width minus body padding */
+            max-width: calc(100vw - 80px);
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .result-columns {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .result-column {
+            flex: 1;
+            min-width: 0; /* Allows flex items to shrink below content size */
+            width: 50%; /* Each column takes up half the width */
+        }
+
+        .column-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+
+        .result-text {
+            text-align: left;
+            line-height: 1.6;
+            color: #333;
+            word-wrap: break-word;
+            font-size: 16px;
+            width: 100%;
+        }
+
+        .original-text {
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        /* Responsive design: stack columns on smaller screens */
+        @media (max-width: 1024px) {
+            .result-columns {
+                flex-direction: column;
+            }
+            
+            .result-column {
+                width: 100%; /* Full width when stacked */
+            }
+            
+            .result-container {
+                padding: 20px;
+            }
+        }
+
+        /* Header styling - maximum specificity to ensure it applies */
+        #resultText.header,
+        #resultText .header,
+        div#resultText .header,
+        .result-text.header,
+        .result-text .header,
+        .result-container .result-text .header,
+        div.result-text div.header {
+            font-weight: 700 !important;
+            font-size: 1.5em !important;
+            margin-top: 1.5em !important;
+            margin-bottom: 0.5em !important;
+            color: #2c3e50 !important;
+            line-height: 1.4 !important;
+            display: block !important;
+            font-family: inherit !important;
+        }
+
+        #resultText .header strong,
+        .result-text .header strong,
+        div.result-text div.header strong {
+            font-weight: 700 !important;
+            font-size: inherit !important;
+            color: inherit !important;
+        }
+
+        .result-text .header:first-child {
+            margin-top: 0;
+        }
+
+        .result-text ul,
+        .result-text ol {
+            margin: 0.5em 0;
+            padding-left: 1.5em;
+            font-size: 1em;
+        }
+
+        .result-text li {
+            margin: 0.3em 0;
+            font-size: 1em;
+        }
+
+        .result-text p {
+            margin: 0.8em 0;
+            font-size: 1em;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="circle-input" id="circleInput">
+            <div class="water-fill" id="waterFill"></div>
+            <div class="circle-content">
+                <input 
+                    type="text" 
+                    id="urlInput" 
+                    placeholder="Paste website URL here"
+                    autocomplete="off"
+                >
+                <button class="submit-btn" id="submitBtn" onclick="processURL()">Process</button>
+            </div>
+            <div class="progress-percentage" id="progressPercentage">0%</div>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-message hidden" id="progressMessage"></div>
+        </div>
+        <div class="result-container hidden" id="resultContainer">
+            <div class="result-columns">
+                <div class="result-column">
+                    <h3 class="column-title">Original Text</h3>
+                    <div class="result-text original-text" id="originalText"></div>
+                </div>
+                <div class="result-column">
+                    <h3 class="column-title">Simplified Text</h3>
+                    <div class="result-text simplified-text" id="resultText"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlInput = document.getElementById('urlInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const circleInput = document.getElementById('circleInput');
+        const waterFill = document.getElementById('waterFill');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressMessage = document.getElementById('progressMessage');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultText = document.getElementById('resultText');
+        
+        let currentProgress = 0;
+
+        // Allow Enter key to submit
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                processURL();
+            }
+        });
+
+        async function processURL() {
+            const url = urlInput.value.trim();
+            
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+
+            // Disable input and button
+            urlInput.disabled = true;
+            submitBtn.disabled = true;
+            circleInput.classList.add('processing');
+            
+            // Reset progress
+            currentProgress = 0;
+            updateProgress(0);
+            
+            // Clear previous results and show progress message
+            progressMessage.classList.remove('hidden');
+            progressMessage.className = 'progress-message progress';
+            progressMessage.textContent = 'Starting pipeline...';
+            resultContainer.classList.add('hidden');
+            resultText.textContent = '';
+            const originalText = document.getElementById('originalText');
+            if (originalText) {
+                originalText.textContent = '';
+            }
+
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+
+                    const decoded = decoder.decode(value, { stream: true });
+                    buffer += typeof decoded === 'string' ? decoded : String(decoded || '');
+                    const lines = typeof buffer === 'string' ? buffer.split('\n') : String(buffer || '').split('\n');
+                    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line && typeof line === 'string' && line.trim()) {
+                            try {
+                                const data = JSON.parse(line);
+                                handleMessage(data);
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e, line);
+                            }
+                        }
+                    }
+                }
+
+                // Process remaining buffer
+                if (buffer && typeof buffer === 'string' && buffer.trim()) {
+                    try {
+                        const data = JSON.parse(buffer);
+                        handleMessage(data);
+                    } catch (e) {
+                        console.error('Error parsing JSON:', e, buffer);
+                    }
+                }
+
+            } catch (error) {
+                addProgressMessage('error', `Error: ${error.message}`);
+            } finally {
+                // Re-enable input and button
+                urlInput.disabled = false;
+                submitBtn.disabled = false;
+                // Reset progress if error, otherwise keep at 100%
+                if (progressMessage.classList.contains('error')) {
+                    updateProgress(0);
+                    circleInput.classList.remove('processing');
+                } else {
+                    // Keep at 100% for a moment, then reset
+                    setTimeout(() => {
+                        circleInput.classList.remove('processing');
+                        updateProgress(0);
+                    }, 2000);
+                }
+                // Hide progress message after a short delay if no error
+                setTimeout(() => {
+                    if (!progressMessage.classList.contains('error')) {
+                        progressMessage.classList.add('hidden');
+                    }
+                }, 1000);
+            }
+        }
+
+        function handleMessage(data) {
+            console.log('handleMessage received:', data);
+            if (data.type === 'progress') {
+                // Ensure message is a string for progress messages
+                const progressMsg = typeof data.message === 'string' ? data.message : String(data.message || '');
+                const percentage = getProgressPercentage(progressMsg);
+                updateProgress(percentage);
+                addProgressMessage('progress', progressMsg);
+            } else if (data.type === 'error') {
+                // Ensure message is a string for error messages
+                const errorMsg = typeof data.message === 'string' ? data.message : String(data.message || '');
+                addProgressMessage('error', errorMsg);
+            } else if (data.type === 'result') {
+                console.log('Result received:', data);
+                console.log('Result message:', data.message);
+                console.log('Result message type:', typeof data.message);
+                console.log('Result message is array?', Array.isArray(data.message));
+                updateProgress(100);
+                // Handle both dict (with original) and string (backward compatibility) results
+                if (typeof data.message === 'object' && data.message !== null && !Array.isArray(data.message)) {
+                    const original = data.message.original || '';
+                    const simplified = data.message.simplified || '';
+                    console.log('Result is object, original length:', original.length, 'simplified length:', simplified.length);
+                    console.log('Original preview:', original.substring(0, 100));
+                    console.log('Simplified preview:', simplified.substring(0, 100));
+                    showResult(original, simplified);
+                } else if (typeof data.message === 'string') {
+                    // Backward compatibility: if it's a string, show only simplified
+                    console.log('Result is string, length:', data.message.length);
+                    console.log('String preview:', data.message.substring(0, 100));
+                    showResult('', data.message || '');
+                } else {
+                    console.error('Unexpected result message type:', typeof data.message, data.message);
+                    showResult('', 'Error: Unexpected result format');
+                }
+            }
+        }
+
+        function getProgressPercentage(message) {
+            // Ensure message is a string
+            const msg = typeof message === 'string' ? message.toLowerCase() : String(message || '').toLowerCase();
+            
+            // URL detection and conversion: 5-25%
+            if (msg.includes('detected url') || msg.includes('url input')) {
+                return 5;
+            }
+            if (msg.includes('converting url') || msg.includes('loading url')) {
+                return 10;
+            }
+            if (msg.includes('url converted') || msg.includes('pdf saved')) {
+                return 25;
+            }
+            
+            // PDF text extraction: 25-35%
+            if (msg.includes('extracting text') || msg.includes('extract')) {
+                return 30;
+            }
+            if (msg.includes('successfully extracted') || msg.includes('extracted')) {
+                return 35;
+            }
+            
+            // Text cleaning: 35-50%
+            if (msg.includes('cleaning extracted') || msg.includes('cleaning text')) {
+                return 40;
+            }
+            if (msg.includes('text cleaning completed') || msg.includes('cleaned')) {
+                return 50;
+            }
+            
+            // Text summarization: 50-70%
+            if (msg.includes('summarizing text') || msg.includes('summarize')) {
+                return 55;
+            }
+            if (msg.includes('summarization completed') || msg.includes('summarized')) {
+                return 70;
+            }
+            
+            // Text simplification: 70-95%
+            if (msg.includes('simplifying') || msg.includes('simplify')) {
+                return 75;
+            }
+            if (msg.includes('processing chunk') || msg.includes('starting summarization') || msg.includes('starting api call')) {
+                // Extract chunk number if possible
+                const chunkMatch = msg.match(/chunk (\d+)/i);
+                if (chunkMatch) {
+                    const chunkNum = parseInt(chunkMatch[1]);
+                    // Distribute chunks across summarization (55-70%) and simplification (75-90%)
+                    if (msg.includes('summarization')) {
+                        return Math.min(55 + (chunkNum * 3), 70);
+                    } else if (msg.includes('simplify') || msg.includes('simplification')) {
+                        return Math.min(75 + (chunkNum * 3), 90);
+                    }
+                    // Default: assume it's in the current phase
+                    return Math.min(currentProgress + 5, 90);
+                }
+                // If we're in summarization phase, return 60, else 80 for simplification
+                if (currentProgress < 70) {
+                    return 60;
+                } else {
+                    return 80;
+                }
+            }
+            if (msg.includes('simplification completed') || msg.includes('simplified')) {
+                return 90;
+            }
+            
+            // Cleanup: 95-100%
+            if (msg.includes('cleaned up') || msg.includes('cleanup')) {
+                return 95;
+            }
+            if (msg.includes('completed successfully') || msg.includes('pipeline completed')) {
+                return 100;
+            }
+            
+            // Default: increment slightly if we're making progress
+            return Math.min(currentProgress + 2, 95);
+        }
+
+        function updateProgress(percentage) {
+            currentProgress = percentage;
+            waterFill.style.height = percentage + '%';
+            progressPercentage.textContent = Math.round(percentage) + '%';
+        }
+
+        function addProgressMessage(type, message) {
+            // Update the single progress message element
+            // Ensure message is a string
+            const msg = typeof message === 'string' ? message : String(message || '');
+            progressMessage.textContent = msg;
+            progressMessage.className = `progress-message ${type}`;
+            progressMessage.classList.remove('hidden');
+        }
+
+        function showResult(originalText, simplifiedText) {
+            console.log('showResult called with original length:', originalText?.length, 'simplified length:', simplifiedText?.length);
+            
+            // Hide progress message when showing result
+            progressMessage.classList.add('hidden');
+            
+            // Get the DOM elements
+            const originalTextEl = document.getElementById('originalText');
+            const resultTextEl = document.getElementById('resultText');
+            const resultContainerEl = document.getElementById('resultContainer');
+            
+            console.log('DOM elements found:', {
+                originalTextEl: !!originalTextEl,
+                resultTextEl: !!resultTextEl,
+                resultContainerEl: !!resultContainerEl
+            });
+            
+            // Display original text (plain text, no processing)
+            if (originalTextEl) {
+                // Ensure originalText is a string
+                const textToShow = typeof originalText === 'string' ? originalText : String(originalText || 'No original text available.');
+                originalTextEl.textContent = textToShow;
+                originalTextEl.style.display = 'block'; // Ensure it's visible
+                console.log('Original text set, length:', textToShow.length);
+                console.log('Original text element display:', window.getComputedStyle(originalTextEl).display);
+            } else {
+                console.error('originalTextEl not found!');
+            }
+            
+            // Process simplified text to identify and wrap headers
+            // Ensure simplifiedText is a string
+            const simplifiedTextStr = typeof simplifiedText === 'string' ? simplifiedText : String(simplifiedText || '');
+            const processedText = processTextForHeaders(simplifiedTextStr);
+            console.log('Processed HTML (first 500 chars):', processedText.substring(0, 500));
+            
+            // Count headers in processed text
+            const headerCount = (processedText.match(/<div class="header">/g) || []).length;
+            console.log('Total headers detected:', headerCount);
+            
+            if (resultTextEl) {
+                resultTextEl.innerHTML = processedText || 'No simplified text available.';
+                resultTextEl.style.display = 'block'; // Ensure it's visible
+                console.log('Simplified text set, innerHTML length:', resultTextEl.innerHTML.length);
+                console.log('Simplified text element display:', window.getComputedStyle(resultTextEl).display);
+            } else {
+                console.error('resultTextEl not found!');
+            }
+            
+            if (resultContainerEl) {
+                resultContainerEl.classList.remove('hidden');
+                resultContainerEl.style.display = 'block'; // Force display
+                resultContainerEl.scrollTop = 0;
+                console.log('Result container shown, hidden class removed, display:', resultContainerEl.style.display);
+                console.log('Result container computed display:', window.getComputedStyle(resultContainerEl).display);
+            } else {
+                console.error('resultContainerEl not found!');
+            }
+            
+            // Force a reflow to ensure visibility
+            void resultContainerEl?.offsetHeight;
+            
+            // Verify headers are in DOM
+            if (resultTextEl) {
+                const headerElements = resultTextEl.querySelectorAll('.header');
+                console.log('Header elements in DOM:', headerElements.length);
+                if (headerElements.length > 0) {
+                    console.log('First header element:', headerElements[0]);
+                    console.log('First header computed styles:', window.getComputedStyle(headerElements[0]));
+                }
+            }
+        }
+
+        function processTextForHeaders(text) {
+            // Ensure text is a string
+            if (typeof text !== 'string') {
+                console.error('processTextForHeaders received non-string:', typeof text, text);
+                text = String(text || '');
+            }
+            
+            // Split text into lines
+            const lines = text.split('\n');
+            const processedLines = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                const nextLine = i < lines.length - 1 ? lines[i + 1].trim() : '';
+                const prevLine = i > 0 ? lines[i - 1].trim() : '';
+                
+                // Skip empty lines (they'll be preserved as spacing)
+                if (line === '') {
+                    processedLines.push('');
+                    continue;
+                }
+                
+                // Check if line is a header
+                const isHeader = isHeaderLine(line, prevLine, nextLine);
+                
+                // Debug: Check for all-caps lines
+                const lettersOnly = line.replace(/[^A-Za-z]/g, '');
+                const upperCaseLetters = lettersOnly.match(/[A-Z]/g) || [];
+                const lowerCaseLetters = lettersOnly.match(/[a-z]/g) || [];
+                if (lettersOnly.length >= 3 && lowerCaseLetters.length === 0 && upperCaseLetters.length > 0) {
+                    console.log('All-caps line found:', line.substring(0, 50), '| isHeader:', isHeader);
+                }
+                
+                if (isHeader) {
+                    console.log('Wrapping as header:', line.substring(0, 50));
+                    // Wrap header in div with header class
+                    // Use strong tag as well for extra emphasis
+                    processedLines.push(`<div class="header"><strong>${escapeHtml(line)}</strong></div>`);
+                } else {
+                    // Check if line starts with bullet point markers
+                    if (line.match(/^[-•*]\s/) || line.match(/^\d+[.)]\s/)) {
+                        // It's a bullet point or numbered list item
+                        processedLines.push(`<p>${escapeHtml(line)}</p>`);
+                    } else {
+                        // Regular paragraph
+                        processedLines.push(`<p>${escapeHtml(line)}</p>`);
+                    }
+                }
+            }
+            
+            return processedLines.join('\n');
+        }
+
+        function isHeaderLine(line, prevLine, nextLine) {
+            // Header detection heuristics
+            // Prioritize all-caps detection since summarizer outputs headers in ALL CAPS
+            
+            // 1. Check if line is all uppercase (excluding spaces, punctuation, numbers)
+            // This is the primary detection for summarizer output
+            const lettersOnly = line.replace(/[^A-Za-z]/g, '');
+            if (lettersOnly.length >= 3) {
+                const upperCaseLetters = lettersOnly.match(/[A-Z]/g) || [];
+                const lowerCaseLetters = lettersOnly.match(/[a-z]/g) || [];
+                
+                // If NO lowercase letters and has uppercase, it's definitely a header
+                // This is the most reliable check for all-caps headers
+                if (lowerCaseLetters.length === 0 && upperCaseLetters.length >= 3) {
+                    return true;
+                }
+                
+                // If 70%+ of letters are uppercase, it's likely a header (lowered threshold)
+                if (lettersOnly.length > 0) {
+                    const upperCaseRatio = upperCaseLetters.length / lettersOnly.length;
+                    if (upperCaseRatio >= 0.70 && lettersOnly.length >= 3) {
+                        return true;
+                    }
+                }
+                
+                // Special case: if line has 5+ uppercase letters in a row, it's likely a header
+                if (line.match(/[A-Z]{5,}/)) {
+                    return true;
+                }
+            }
+            
+            // 2. Lines ending with colon that are relatively short (likely headers)
+            if (line.endsWith(':') && line.length < 100) {
+                return true;
+            }
+            
+            // 3. Lines ending with question mark that are short (question headers)
+            if (line.endsWith('?') && line.length < 100) {
+                return true;
+            }
+            
+            // 4. Short lines that are followed by a longer line (likely header followed by content)
+            if (line.length < 60 && nextLine.length > line.length * 2 && nextLine.length > 50) {
+                // But not if it's clearly part of a sentence
+                if (!line.endsWith('.') && !line.endsWith(',') && !line.endsWith(';')) {
+                    return true;
+                }
+            }
+            
+            // 5. Lines that are standalone (empty before and after) and relatively short
+            if (prevLine === '' && nextLine === '' && line.length < 80 && line.length > 10) {
+                // Check if it looks like a title/header (not a sentence)
+                if (!line.endsWith('.') && !line.match(/^[a-z]/)) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+
+
