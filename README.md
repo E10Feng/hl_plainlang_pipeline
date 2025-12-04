@@ -34,10 +34,9 @@ playwright install chromium
    - Add your OpenAI API key to `.env`:
      ```
      OPENAI_API_KEY=your_api_key_here
-     OPENAI_MODEL=gpt-4o-mini
+     OPENAI_MODEL=gpt-5-mini
      ```
    - Get your API key from: https://platform.openai.com/api-keys
-   - Supported models: `gpt-4o-mini`, `gpt-4`, `gpt-3.5-turbo`, etc.
 
 ## Usage
 
